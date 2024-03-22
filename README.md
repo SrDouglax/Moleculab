@@ -1,30 +1,38 @@
-# React + TypeScript + Vite
+# Moleculab
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+## Description
+The Moleculab is a JavaScript-based simulation tool that allows users to visualize molecular structures and simulate interactions between atoms. It provides features for creating atoms, forming bonds between them, calculating angles, and visualizing molecular configurations.
 
-Currently, two official plugins are available:
+## Installation
+To use the Moleculab, follow these steps:
+1. Clone this repository to your local machine.
+2. Run with `pnpm dev`.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Usage
+Once the simulation is running, you can interact with it using the mouse and keyboard:
+- Click on the canvas to create atoms.
+- Press and hold the CTRL key while clicking on atoms to form bonds between them.
+- Press the 'n' key to create a new random atom at the current mouse position.
+- Press the 'd' key to delete the atom under the mouse cursor.
 
-## Expanding the ESLint configuration
+## Features
+- Visualization of molecular structures.
+- Creation of atoms and formation of bonds between them.
+- Calculation and visualization of angles between atoms.
+- Interactive simulation with mouse and keyboard controls.
 
-If you are developing a production application, we recommend updating the configuration to enable type aware lint rules:
+## Contributing
+Contributions to the Molecular Simulation project are welcome! If you'd like to contribute, please follow these guidelines:
+1. Fork the repository.
+2. Create a new branch for your feature or bug fix.
+3. Make your changes and test them thoroughly.
+4. Submit a pull request with a clear description of your changes.
 
-- Configure the top-level `parserOptions` property like this:
+## License
+This project is licensed under the [MIT License](LICENSE).
 
-```js
-export default {
-  // other rules...
-  parserOptions: {
-    ecmaVersion: 'latest',
-    sourceType: 'module',
-    project: ['./tsconfig.json', './tsconfig.node.json'],
-    tsconfigRootDir: __dirname,
-  },
-}
-```
+## Credits
+The Molecular Simulation project was created by Marcos Douglas.
 
-- Replace `plugin:@typescript-eslint/recommended` to `plugin:@typescript-eslint/recommended-type-checked` or `plugin:@typescript-eslint/strict-type-checked`
-- Optionally add `plugin:@typescript-eslint/stylistic-type-checked`
-- Install [eslint-plugin-react](https://github.com/jsx-eslint/eslint-plugin-react) and add `plugin:react/recommended` & `plugin:react/jsx-runtime` to the `extends` list
+## Support
+For questions, bug reports, or feature requests, please contact meioameio8686@gmail.com.
