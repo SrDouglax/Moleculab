@@ -193,7 +193,7 @@ class Simulation {
    * @param angleText - The text to be displayed as the angle.
    * @param rotationAngle - The rotation angle of the text.
    */
-  drawAngleText(midPointX: number, midPointY: number, radius: number, angleText: string, rotationAngle: number) {
+  drawAngleText(midPointX: number, midPointY: number, radius: number, angleText: string) {
     if (!this.ctx) return;
     this.ctx.save(); // Salva o estado atual do contexto
     this.ctx.translate(midPointX, midPointY); // Move para o ponto médio do arco
@@ -345,7 +345,7 @@ class Simulation {
     this.pressedKeys = this.pressedKeys.filter((key) => key !== event.key);
   };
 
-  private handleWindowFocus = (event: FocusEvent) => {
+  private handleWindowFocus = () => {
     this.pressedKeys = [];
     this.draggingId = null;
   };
