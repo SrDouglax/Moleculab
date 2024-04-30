@@ -13,10 +13,7 @@ To use the Moleculab, follow these steps:
 
 ## Usage
 Once the simulation is running, you can interact with it using the mouse and keyboard:
-- Click on the canvas to create atoms.
-- Press and hold the CTRL key while clicking on atoms to form bonds between them.
 - Press the 'n' key to create a new random atom at the current mouse position.
-- Press the 'd' key to delete the atom under the mouse cursor.
 
 ## Features
 - Visualization of molecular structures.
