@@ -1,12 +1,20 @@
 import { Atom } from "../atom";
-import { Bond } from "../atom/bond";
+import { Bond, BondType } from "../atom/bond";
+import { CovalentBond } from "../atom/bond/covalentBond";
 import { Vector2 } from "../physics/vector";
+import { World } from "../world";
 
 interface AtomsAngle {
   atom1: Atom;
   atom2: Atom;
   atom3: Atom;
   angle: number;
+}
+
+export interface SettingsType {
+  timeMode?: "constant" | "realtime";
+  iterationsPerSecond?: number;
+  calculateAngles?: boolean;
 }
 
 /**
@@ -27,12 +35,18 @@ class Simulation {
   private mousePosition: { x: number; y: number };
   private pressedKeys: any[];
   private lastClickedItemId: string | null;
+  private targetZoom: number;
+  private bondedAtomPairs: Set<string>;
+  private iterationDelay: number;
 
+  private world: World;
   public atoms: Atom[];
   public bonds: Bond[];
   public angles: AtomsAngle[];
 
-  constructor(canvas: HTMLCanvasElement) {
+  public settings: SettingsType;
+
+  constructor(canvas: HTMLCanvasElement, settings?: SettingsType) {
     this.canvas = canvas;
     this.ctx = canvas.getContext("2d"); // Aqui pode ser nulo
     this.atoms = [];
@@ -43,6 +57,12 @@ class Simulation {
     this.draggingId = null;
     this.lastClickedItemId = null;
     this.angles = [];
+    this.world = new World(0, 0, 1);
+    this.targetZoom = 1;
+    this.bondedAtomPairs = new Set<string>();
+    this.iterationDelay = 0;
+
+    this.settings = settings || {};
 
     this.resizeCanvas();
 
@@ -53,7 +73,7 @@ class Simulation {
     }
 
     this.setupEventListeners();
-    this.animate();
+    this.simulate(0);
   }
 
   /**
@@ -128,9 +148,7 @@ class Simulation {
    */
   isTriangle(atom1: Atom, atom2: Atom, atom3: Atom): boolean {
     // Verificar se os átomos estão todos conectados entre si
-    const areConnected = atom1.isBondedWith(this.bonds, atom2) && atom2.isBondedWith(this.bonds, atom3);
-
-    return areConnected;
+    return atom1.isBondedWith(this.bonds, atom2) && atom2.isBondedWith(this.bonds, atom3);
   }
 
   /**
@@ -147,12 +165,12 @@ class Simulation {
     this.ctx.lineWidth = 2; // Defina a largura da linha dos ângulos
 
     for (const { atom1, atom2, atom3, angle } of this.angles) {
-      const midPointX = atom2.pos.x;
-      const midPointY = atom2.pos.y;
+      const midPointX = atom2.pos.x * this.world.zoom;
+      const midPointY = atom2.pos.y * this.world.zoom;
 
-      const radius = atom2.getAnimatedSize() + 5; // Raio do arco
-      let startAngle = Math.atan2(atom1.pos.y - midPointY, atom1.pos.x - midPointX);
-      let endAngle = Math.atan2(atom3.pos.y - midPointY, atom3.pos.x - midPointX);
+      const radius = (atom2.getAnimatedSize() + 5) * this.world.zoom; // Raio do arco
+      let startAngle = Math.atan2(atom1.pos.y * this.world.zoom - midPointY, atom1.pos.x * this.world.zoom - midPointX);
+      let endAngle = Math.atan2(atom3.pos.y * this.world.zoom - midPointY, atom3.pos.x * this.world.zoom - midPointX);
       let arcSize = endAngle - startAngle;
 
       // Verificar se o tamanho do arco é negativo (ocorre quando o ângulo de término é menor que o ângulo de início)
@@ -236,8 +254,12 @@ class Simulation {
    * Resizes the canvas element to match the current window dimensions.
    */
   public resizeCanvas() {
-    this.canvas.width = window.innerWidth;
-    this.canvas.height = window.innerHeight;
+    const canvasStyle = window.getComputedStyle(this.canvas);
+    const canvasWidth = parseFloat(canvasStyle.width);
+    const canvasHeight = parseFloat(canvasStyle.height);
+    this.canvas.width = canvasWidth;
+    this.canvas.height = canvasHeight;
+    console.log(canvasWidth, canvasHeight);
   }
 
   /**
@@ -257,7 +279,6 @@ class Simulation {
     const existingBondIndex = this.bonds.findIndex(
       (bond) => (bond.atom1.id === atom1Id && bond.atom2.id === atom2Id) || (bond.atom1.id === atom2Id && bond.atom2.id === atom1Id)
     );
-    console.log(existingBondIndex);
     if (existingBondIndex > -1) {
       this.bonds.splice(existingBondIndex, 1);
     } else {
@@ -289,32 +310,130 @@ class Simulation {
    *
    * @returns {void}
    */
-  private animate(): void {
-    const currentTime = performance.now();
-    const deltaTime = (currentTime - this.lastFrameTime) / 1000;
-    this.lastFrameTime = currentTime;
-
-    // Aplica a lógica de movimento
-    this.atoms.forEach((atom) => {
-      if (atom.id === this.draggingId) {
-        atom.vel = new Vector2(this.mousePosition.x - atom.pos.x, this.mousePosition.y - atom.pos.y);
-      }
-      atom.calcPosition(deltaTime);
-    });
-
+  private simulate(currentTime: number): void {
     if (this.ctx) {
+      const deltaTime =
+        this.settings.timeMode === "realtime" ? (currentTime - this.lastFrameTime) / 1000 : (1 / 60) * (this.settings.iterationsPerSecond || 60);
+      this.iterationDelay += deltaTime;
+
+      // const atomsTable: Record<string, Atom> = this.atoms.reduce((acc: Record<string, Atom>, atom: Atom) => {
+      //   acc[atom.id] = atom;
+      //   return acc;
+      // }, {});
+
       this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-      this.calculateAngles();
-      this.drawAngles();
-      this.bonds.forEach((bond) => {
-        bond.draw(this.ctx!);
+      this.ctx.save();
+
+      this.calculatePhysics(deltaTime);
+
+      const zoomSmooth = 0.1;
+      this.world.zoom = this.world.zoom * (1 - zoomSmooth) + this.targetZoom * zoomSmooth;
+
+      if (this.settings.calculateAngles) {
+        this.calculateAngles();
+        this.drawAngles();
+      }
+      [...this.bondedAtomPairs].forEach((e, i) => {
+        this.ctx?.fillText(`${e}`, 10, 80 + 10 * i);
       });
+      // [...this.bondedAtomPairs].forEach((bond) => {
+      //   const atom1 = atomsTable[bond.split("_")[0]];
+      //   const atom2 = atomsTable[bond.split("_")[1]];
+      //   Bond.draw(this.ctx!, this.world, atom1, atom2, BondType["Covalent"]);
+      // });
       this.atoms.forEach((atom) => {
-        atom.draw(this.ctx!, this.lastClickedItemId === atom.id);
+        atom.draw(this.ctx!, this.world, this.lastClickedItemId === atom.id);
       });
+
+      
+      this.ctx.fillStyle = "#444";
+      this.ctx.font = "bold 18px Arial";
+      this.ctx.fillText(`'N' to create new atom`, 10, 30);
+      
+      this.ctx.fillStyle = "white";
+      this.ctx.font = "12px Arial";
+      this.ctx.fillText(`FPS: ${Math.round(1 / ((currentTime - this.lastFrameTime) / 1000))}`, 10, this.canvas.height - 10);
+
+      // [...this.bondedAtomPairs].forEach((e, i) => {
+      //   this.ctx?.fillText(`${e}`, 10, 80 + 10 * i);
+      // });
+      this.ctx.restore();
     }
 
-    requestAnimationFrame(this.animate.bind(this));
+    this.lastFrameTime = currentTime;
+    requestAnimationFrame(this.simulate.bind(this));
+  }
+
+  private calculatePhysics(deltaTime: number) {
+    // Apply movement logic
+    this.atoms.forEach((atom) => {
+      if (atom.id === this.draggingId) {
+        atom.pos = new Vector2(this.mousePosition.x, this.mousePosition.y);
+      } else {
+        let totalForceX = 0;
+        let totalForceY = 0;
+        this.atoms.forEach((otherAtom) => {
+          if (this.isBonded(atom, otherAtom)) {
+            const bond = this.bonds.find((b) => b.isAtomsInBond(atom, otherAtom));
+            if (bond?.bondType instanceof CovalentBond && this.ctx) {
+              const bondForce = bond.bondType.calculateForce(atom, otherAtom);
+              totalForceX -= bondForce.x;
+              totalForceY -= bondForce.y;
+              bond.bondType.draw(this.ctx);
+            }
+          }
+
+          // Repulse
+          // const forceMagnitude = 200 / otherAtom.pos.distanceTo(atom.pos);
+          // const forceX = (otherAtom.pos.x - atom.pos.x) * forceMagnitude * (1 / (atom.pos.distanceTo(otherAtom.pos) / 10 ** 1 || 0.00000001));
+          // const forceY = (otherAtom.pos.y - atom.pos.y) * forceMagnitude * (1 / (atom.pos.distanceTo(otherAtom.pos) / 10 ** 1 || 0.00000001));
+          // totalForceX -= forceX;
+          // totalForceY -= forceY;
+          // }
+          const distance = atom.pos.distanceTo(otherAtom.pos);
+          if (distance < 400 && atom !== otherAtom && !this.isBonded(atom, otherAtom) && Bond.isBondValid(this.bonds, atom, otherAtom)) {
+            const bond = new Bond(atom, otherAtom);
+            this.bonds.push(bond);
+            this.bondedAtomPairs.add(this.getBondKey(atom, otherAtom));
+          } else if (distance > 400 && this.isBonded(atom, otherAtom)) {
+            this.bonds = this.bonds.filter((bond) => !this.areAtomsEqual(bond.atom1, atom, bond.atom2, otherAtom));
+            this.removeBondedPair(atom, otherAtom);
+          }
+        });
+        atom.vel = new Vector2(totalForceX || 0, totalForceY || 0);
+        atom.calcPosition(deltaTime);
+        if (atom.pos.x < 0) {
+          atom.pos.x = this.canvas.width / this.world.zoom / 2;
+        } else if (atom.pos.x > this.canvas.width / this.world.zoom) {
+          atom.pos.x = this.canvas.width / this.world.zoom / 2;
+        } else if (atom.pos.y < 0) {
+          atom.pos.y = this.canvas.height / this.world.zoom / 2;
+        } else if (atom.pos.y > this.canvas.height / this.world.zoom) {
+          atom.pos.y = this.canvas.height / this.world.zoom / 2;
+        }
+      }
+    });
+  }
+
+  private getBondKey(atom1: Atom, atom2: Atom): string {
+    return `${atom1.id}_${atom2.id}`;
+  }
+
+  private isBonded(atom1: Atom, atom2: Atom): boolean {
+    const key1 = this.getBondKey(atom1, atom2);
+    const key2 = this.getBondKey(atom2, atom1);
+    return this.bondedAtomPairs.has(key1) || this.bondedAtomPairs.has(key2);
+  }
+
+  private areAtomsEqual(atom1: Atom, otherAtom1: Atom, atom2: Atom, otherAtom2: Atom): boolean {
+    return (atom1 === otherAtom1 && atom2 === otherAtom2) || (atom1 === otherAtom2 && atom2 === otherAtom1);
+  }
+
+  private removeBondedPair(atom1: Atom, atom2: Atom): void {
+    const key1 = this.getBondKey(atom1, atom2);
+    const key2 = this.getBondKey(atom2, atom1);
+    this.bondedAtomPairs.delete(key1);
+    this.bondedAtomPairs.delete(key2);
   }
 
   // =========== Input Managers =========== \\
@@ -325,18 +444,25 @@ class Simulation {
     window.addEventListener("keydown", this.handleKeyPressed);
     window.addEventListener("keyup", this.handleKeyReleased);
     window.addEventListener("focus", this.handleWindowFocus);
+    window.addEventListener("wheel", this.handleZoom);
+    window.addEventListener("resize", () => this.resizeCanvas());
   }
 
   private handleKeyPressed = (event: KeyboardEvent) => {
     if (!this.pressedKeys.includes(event.key)) {
       this.pressedKeys.push(event.key);
-      console.log(this.angles);
       if (event.key === "n") {
         this.atoms = [...this.atoms, Atom.generateRandomAtom(new Vector2(this.mousePosition.x, this.mousePosition.y))];
       }
       if (event.key === "d") {
         const molecule = this.getMouseOverMoleculeId(this.mousePosition.x, this.mousePosition.y);
         this.atoms = this.atoms.filter((e) => e.id !== molecule);
+      }
+      if (event.key === "r") {
+        this.atoms = [];
+        this.bonds = [];
+        this.angles = [];
+        this.draggingId = null;
       }
     }
   };
@@ -351,10 +477,7 @@ class Simulation {
   };
 
   private handleMouseDown = (event: MouseEvent) => {
-    const rect = this.canvas.getBoundingClientRect();
-    const mouseX = event.clientX - rect.left;
-    const mouseY = event.clientY - rect.top;
-    const moleculeId = this.getMouseOverMoleculeId(mouseX, mouseY);
+    const moleculeId = this.getMouseOverMoleculeId(this.mousePosition.x, this.mousePosition.y);
 
     // If ctrl key is pressed when click in atom
     if (event.ctrlKey) {
@@ -369,14 +492,12 @@ class Simulation {
         this.draggingId = moleculeId;
       }
     }
-
-    console.log(this.bonds);
   };
 
   private handleMouseMove = (event: MouseEvent) => {
     const rect = this.canvas.getBoundingClientRect();
-    const mouseX = event.clientX - rect.left;
-    const mouseY = event.clientY - rect.top;
+    const mouseX = event.clientX / this.world.zoom - rect.left;
+    const mouseY = event.clientY / this.world.zoom - rect.top;
     this.mousePosition = { x: mouseX, y: mouseY };
     const moleculeId = this.getMouseOverMoleculeId(mouseX, mouseY);
     if (moleculeId) {
@@ -388,6 +509,11 @@ class Simulation {
 
   private handleMouseUp = () => {
     this.draggingId = null;
+  };
+
+  private handleZoom = (event: WheelEvent) => {
+    const zoomAmount = event.deltaY * -0.0005; // Adjust the sensitivity based on your needs
+    this.targetZoom = Math.min(Math.max(this.targetZoom + zoomAmount, 0.1), 10);
   };
 }
 

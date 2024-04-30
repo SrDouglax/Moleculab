@@ -31,6 +31,26 @@ export class Vector2 {
     return Math.sqrt(this.x * this.x + this.y * this.y);
   }
 
+  normalize(): Vector2 {
+    const len = this.length();
+    if (len === 0) {
+      return new Vector2(0, 0);
+    }
+    return new Vector2(this.x / len, this.y / len);
+  }
+
+  scale(value: number): Vector2 {
+    this.x *= value;
+    this.y *= value;
+    return this;
+  }
+
+  distanceTo(other: Vector2): number {
+    const dx = this.x - other.x;
+    const dy = this.y - other.y;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
   selfInterpolate(target: Vector2, factor: number): Vector2 {
     this.x = this.x + (target.x - this.x) * factor;
     this.y = this.y + (target.y - this.y) * factor;

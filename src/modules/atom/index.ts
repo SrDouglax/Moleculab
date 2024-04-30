@@ -1,7 +1,8 @@
+import { CanvasHelper } from "../canvas/basic";
 import { Vector2 } from "../physics/vector";
+import { World } from "../world";
 import { Bond } from "./bond";
 import { Element, elements } from "./elements";
-import { Isotope } from "./isotope";
 
 interface AtomProperties {
   atomicNumber?: number; // Número atômico
@@ -16,7 +17,6 @@ interface AtomProperties {
   protons?: number; // Número de prótons
   neutrons?: number; // Número de nêutrons
   electrons?: number; // Número de elétrons
-  isotopes?: Isotope[];
 }
 
 interface AtomConfig {
@@ -27,6 +27,7 @@ interface AtomConfig {
   friction?: number;
   properties?: AtomProperties;
 }
+
 export class Atom {
   pos: Vector2;
   vel: Vector2;
@@ -52,33 +53,51 @@ export class Atom {
     return this.size * (1 + Math.min(this.vel.length(), this.size * 2) / (this.size * 10));
   }
 
-  draw(ctx: CanvasRenderingContext2D, selected: boolean) {
+  draw(ctx: CanvasRenderingContext2D, world: World, selected: boolean) {
     const styles = this.getStyle();
     const borderSpacing = selected ? 5 : 0; // Define o espaçamento da borda quando o átomo está selecionado
-    const radius = this.getAnimatedSize();
+    const radius = this.getAnimatedSize() * world.zoom;
+    const relativePos = this.pos.multi(world.zoom);
 
     // Desenha o círculo representando o átomo com espaçamento de borda
-    ctx.beginPath();
-    ctx.arc(this.pos.x, this.pos.y, radius + borderSpacing, 0, Math.PI * 2);
-    ctx.fillStyle = "transparent"; // Define a cor de preenchimento como transparente para que apenas a borda seja desenhada
-    ctx.lineWidth = 3; // Define a largura da borda
-    ctx.strokeStyle = selected ? "white" : `hsl(${(this.properties.atomicNumber || 0) * 137.508}, 50%, 50%)`;
-    ctx.stroke();
-    ctx.closePath();
+    // ctx.beginPath();
+    // ctx.arc(relativePos.x, relativePos.y, radius + borderSpacing, 0, Math.PI * 2);
+    // ctx.fillStyle = "transparent"; // Define a cor de preenchimento como transparente para que apenas a borda seja desenhada
+    // ctx.lineWidth = 3; // Define a largura da borda
+    // ctx.strokeStyle = selected ? "white" : `hsl(${(this.properties.atomicNumber || 0) * 137.508}, 50%, 50%)`;
+    // ctx.stroke();
+    // ctx.closePath();
 
+    // function stringToNumber(seed: string): number {
+    //   let hash = 0;
+    //   if (seed.length === 0) return hash;
+    //   for (let i = 0; i < seed.length; i++) {
+    //     let char = seed.charCodeAt(i);
+    //     hash = (hash << 5) - hash + char;
+    //     hash &= hash; // Convert to 32bit integer
+    //   }
+    //   return Math.abs(hash);
+    // }
     // Desenha o círculo interno representando o átomo
-    ctx.beginPath();
-    ctx.arc(this.pos.x, this.pos.y, radius, 0, Math.PI * 2);
-    ctx.fillStyle = `hsl(${(this.properties.atomicNumber || 0) * 137.508}, 50%, 50%)`;
-    ctx.fill();
-    ctx.closePath();
+    CanvasHelper.drawCircle({
+      ctx,
+      x: relativePos.x,
+      y: relativePos.y,
+      radius,
+      fillColor: `hsl(${(this.properties.atomicNumber || 0) * 137.508}, 50%, 50%)`,
+    });
+
+    ctx.save();
+    ctx.translate(relativePos.x, relativePos.y);
+    ctx.scale(world.zoom, world.zoom);
 
     if (this.properties.symbol) {
       ctx.font = `${styles.symbolFontSize}px Arial`;
       ctx.fillStyle = "white";
       ctx.textAlign = "center";
-      ctx.fillText(this.properties.symbol, this.pos.x, this.pos.y + styles.symbolFontSize / 4 + 2);
+      ctx.fillText(this.properties.symbol, 0, styles.symbolFontSize / 4 + 2);
     }
+    ctx.restore();
   }
 
   getStyle() {
@@ -116,18 +135,17 @@ export class Atom {
   }
 
   calcPosition(delta: number) {
-    if (this.vel.length() < 0.00001) {
-      this.vel = new Vector2(0, 0);
-    } else {
-      // Calcula a força de fricção proporcional à velocidade atual
-      const frictionForce = this.vel.multi(-this.friction);
+    // Calculate the mass factor based on the atomic mass
+    const mass = this.properties.atomicMass || 1;
 
-      // Atualiza a velocidade com a força de fricção aplicada
-      this.vel = this.vel.sum(frictionForce.multi(delta * (1 / Math.log(this.properties.atomicMass || 2)) * 20));
+    // Apply the mass factor to the velocity
+    // const acceleration = new Vector2((this.vel.x / mass) * 100, (this.vel.y / mass) * 100);
+    const acceleration = this.vel.multi(10);
 
-      // Atualiza a posição com base na velocidade atual
-      this.pos = this.pos.sum(this.vel.multi(delta * (1 / Math.log(this.properties.atomicMass || 2)) * 20));
-    }
+    this.pos.selfInterpolate(this.pos.sum(acceleration), 0.5 * delta);
+
+    // this.pos.x += acceleration.x * delta;
+    // this.pos.y += acceleration.y * delta;
   }
 
   public isBondedWith(bonds: Bond[], otherAtom: Atom): boolean {

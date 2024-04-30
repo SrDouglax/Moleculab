@@ -1,5 +1,8 @@
 # Moleculab
 
+## Important!
+Moleculab was discontinued by me, Marcos Douglas, as I do not have the necessary knowledge to progress the project in the area of physics and chemistry.
+
 ## Description
 The Moleculab is a JavaScript-based simulation tool that allows users to visualize molecular structures and simulate interactions between atoms. It provides features for creating atoms, forming bonds between them, calculating angles, and visualizing molecular configurations.
 
