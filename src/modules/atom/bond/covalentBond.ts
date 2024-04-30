@@ -4,18 +4,19 @@ import { CanvasHelper } from "../../canvas/basic";
 import { Vector2 } from "../../physics/vector";
 
 export class CovalentBond {
-  bond: Bond;
-  constructor(bond: Bond) {
+  bond: Bond | undefined;
+  constructor(bond?: Bond) {
     this.bond = bond;
   }
 
   draw(ctx: CanvasRenderingContext2D): void {
-    CanvasHelper.drawLine({
-      ctx,
-      start: new Vector2(this.bond.atom1.pos.x, this.bond.atom1.pos.y),
-      end: new Vector2(this.bond.atom2.pos.x, this.bond.atom2.pos.y),
-      strokeColor: "white",
-    });
+    if (this.bond)
+      CanvasHelper.drawLine({
+        ctx,
+        start: new Vector2(this.bond.atom1.pos.x, this.bond.atom1.pos.y),
+        end: new Vector2(this.bond.atom2.pos.x, this.bond.atom2.pos.y),
+        strokeColor: "white",
+      });
   }
 
   calculateForce(atom1: Atom, atom2: Atom): Vector2 {

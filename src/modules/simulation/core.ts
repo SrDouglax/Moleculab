@@ -1,5 +1,5 @@
 import { Atom } from "../atom";
-import { Bond, BondType } from "../atom/bond";
+import { Bond } from "../atom/bond";
 import { CovalentBond } from "../atom/bond/covalentBond";
 import { Vector2 } from "../physics/vector";
 import { World } from "../world";
@@ -342,7 +342,7 @@ class Simulation {
       //   Bond.draw(this.ctx!, this.world, atom1, atom2, BondType["Covalent"]);
       // });
       this.atoms.forEach((atom) => {
-        atom.draw(this.ctx!, this.world, this.lastClickedItemId === atom.id);
+        atom.draw(this.ctx!, this.world);
       });
 
       

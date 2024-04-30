@@ -53,9 +53,8 @@ export class Atom {
     return this.size * (1 + Math.min(this.vel.length(), this.size * 2) / (this.size * 10));
   }
 
-  draw(ctx: CanvasRenderingContext2D, world: World, selected: boolean) {
+  draw(ctx: CanvasRenderingContext2D, world: World) {
     const styles = this.getStyle();
-    const borderSpacing = selected ? 5 : 0; // Define o espaçamento da borda quando o átomo está selecionado
     const radius = this.getAnimatedSize() * world.zoom;
     const relativePos = this.pos.multi(world.zoom);
 
@@ -135,17 +134,9 @@ export class Atom {
   }
 
   calcPosition(delta: number) {
-    // Calculate the mass factor based on the atomic mass
-    const mass = this.properties.atomicMass || 1;
-
-    // Apply the mass factor to the velocity
-    // const acceleration = new Vector2((this.vel.x / mass) * 100, (this.vel.y / mass) * 100);
     const acceleration = this.vel.multi(10);
 
     this.pos.selfInterpolate(this.pos.sum(acceleration), 0.5 * delta);
-
-    // this.pos.x += acceleration.x * delta;
-    // this.pos.y += acceleration.y * delta;
   }
 
   public isBondedWith(bonds: Bond[], otherAtom: Atom): boolean {
